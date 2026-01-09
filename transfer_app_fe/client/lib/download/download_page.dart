@@ -7,41 +7,116 @@ import 'pdf_widget.dart';
 import 'package:http/http.dart' as http;
 
 class DownloadPage extends StatefulWidget {
-  final String fileKey;
-  final String url;
+  final String? fileKey; // single file
+  final String? url;     // single file URL
+  final String? folderKey;
+  final List<Map<String, String>>? files;
 
-  const DownloadPage({super.key, required this.fileKey, required this.url});
+  const DownloadPage({
+    super.key,
+    this.fileKey,
+    this.url,
+    this.folderKey,
+    this.files,
+  });
+
+  bool get isSingleFile => fileKey != null && url != null;
+  bool get isFolder => folderKey != null && files != null && files!.isNotEmpty;
 
   @override
   State<DownloadPage> createState() => _DownloadPageState();
 }
 
 class _DownloadPageState extends State<DownloadPage> {
-  late final bool isImage;
-  late final bool isVideo;
-  late final bool isPdf;
-  bool isHovering = false; // hover state for button styling
-
   @override
-  void initState() {
-    super.initState();
-
-    isImage = _isImage(widget.fileKey);
-    isVideo = _isVideo(widget.fileKey);
-    isPdf = _isPdf(widget.fileKey);
+  Widget build(BuildContext context) {
+    if (widget.isSingleFile) {
+      return _buildSingleFile(widget.fileKey!, widget.url!);
+    } else if (widget.isFolder) {
+      return _buildFolder(widget.folderKey!, widget.files!);
+    } else {
+      return const Scaffold(
+        body: Center(child: Text('No file(s) to display')),
+      );
+    }
   }
 
-  bool _isImage(String name) =>
-      RegExp(r'\.(png|jpg|jpeg|gif|webp)$', caseSensitive: false)
-          .hasMatch(name);
+  Widget _buildSingleFile(String key, String url) {
+    final displayName = Uri.decodeComponent(Uri.parse(url).pathSegments.last);
+    return Scaffold(
+      appBar: AppBar(title: Text(displayName)),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildFilePreview(key, url),
+            const SizedBox(height: 32),
+            _DownloadButton(fileKey: key, url: url),
+          ],
+        ),
+      ),
+    );
+  }
 
-  bool _isVideo(String name) =>
-      RegExp(r'\.(mp4|mov|webm|avi)$', caseSensitive: false).hasMatch(name);
+  Widget _buildFolder(String folderKey, List<Map<String, String>> files) {
+    return Scaffold(
+      appBar: AppBar(title: Text(folderKey)),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: files.map((file) {
+            final key = file['key']!;
+            final url = file['url']!;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  _buildFilePreview(key, url),
+                  const SizedBox(height: 12),
+                  _DownloadButton(fileKey: key, url: url),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
 
-  bool _isPdf(String name) => RegExp(r'\.pdf$', caseSensitive: false).hasMatch(name);
+  Widget _buildFilePreview(String key, String url) {
+    final isImage = RegExp(r'\.(png|jpg|jpeg|gif|webp)$', caseSensitive: false).hasMatch(key);
+    final isVideo = RegExp(r'\.(mp4|mov|webm|avi)$', caseSensitive: false).hasMatch(key);
+    final isPdf = RegExp(r'\.pdf$', caseSensitive: false).hasMatch(key);
+
+    if (isVideo) return VideoPlayerWidget(url: url);
+    if (isImage) return Image.network(url);
+    if (isPdf) return const PdfWidget();
+    return const Center(child: Text('Unsupported file type'));
+  }
+}
+
+class _DownloadButton extends StatefulWidget {
+  final String fileKey;
+  final String url;
+
+  const _DownloadButton({required this.fileKey, required this.url});
+
+  @override
+  State<_DownloadButton> createState() => _DownloadButtonState();
+}
+
+class _DownloadButtonState extends State<_DownloadButton> {
+  bool isHovering = false;
 
   Future<void> _downloadFile() async {
     try {
+      final isVideo = RegExp(r'\.(mp4|mov|webm|avi)$', caseSensitive: false)
+          .hasMatch(widget.fileKey);
+      final isPdf = RegExp(r'\.pdf$', caseSensitive: false).hasMatch(widget.fileKey);
+
       if (isVideo || (kIsWeb && isPdf)) {
         final uri = Uri.parse(widget.url);
         final launched = await launchUrl(
@@ -79,62 +154,37 @@ class _DownloadPageState extends State<DownloadPage> {
 
   @override
   Widget build(BuildContext context) {
-    Widget content;
-
-    if (isVideo) {
-      content = VideoPlayerWidget(url: widget.url);
-    } else if (isImage) {
-      content = Image.network(widget.url);
-    } else if (isPdf) {
-      content = const PdfWidget();
-    } else {
-      content = const Center(child: Text('Unsupported file type'));
-    }
-
-    // Define colors matching HomePage
     final borderColor = Colors.blue;
     final bgColor = isHovering ? Colors.blue[100] : Colors.blue[50];
     final textColor = Colors.blue;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.fileKey)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            content,
-            const SizedBox(height: 32),
-            MouseRegion(
-              onEnter: (_) => setState(() => isHovering = true),
-              onExit: (_) => setState(() => isHovering = false),
-              child: GestureDetector(
-                onTap: _downloadFile,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    border: Border.all(color: borderColor, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.download, color: textColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Download',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: textColor,
-                        ),
-                      ),
-                    ],
-                  ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovering = true),
+      onExit: (_) => setState(() => isHovering = false),
+      child: GestureDetector(
+        onTap: _downloadFile,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border.all(color: borderColor, width: 2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.download, color: textColor),
+              const SizedBox(width: 8),
+              Text(
+                'Download',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

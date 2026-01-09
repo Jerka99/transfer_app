@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:async_redux/async_redux.dart';
 import 'package:business/models/cloud/cloud_action.dart';
 import 'package:business/models/cloud/link_expiry.dart';
@@ -5,6 +7,7 @@ import 'package:business/models/cloud/s3_file.dart';
 import 'package:business/store/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:typed_data';
 
 import '../base_factory.dart';
@@ -31,51 +34,57 @@ class Factory extends BaseFactory<HomePageConnector, ViewModel> {
           expiry: expiry,
           context: context,
           callbackFun: (url) {
-            if (context.mounted) {
-              final encodedUrl = Uri.encodeComponent(url);
+            if (!context.mounted) return;
 
-              final shareableLink =
-                  'http://localhost:52341/download?key=${Uri.encodeComponent(key)}&url=$encodedUrl';
-              Clipboard.setData(ClipboardData(text: shareableLink));
+            // Encode key and signed URL in Base64
+            final encodedKey = base64UrlEncode(utf8.encode(key));
+            final encodedUrl = base64UrlEncode(utf8.encode(url));
 
-              Navigator.pushNamed(
-                context,
-                '/download?key=${Uri.encodeComponent(key)}&url=$encodedUrl',
-              );
-            }
+            // Shareable link
+            final shareableLink =
+                'http://localhost:52341/download?key=$encodedKey&url=$encodedUrl';
+
+            Clipboard.setData(ClipboardData(text: shareableLink));
+
+            // Navigate via GoRouter — browser URL is safe
+            context.go('/download?key=$encodedKey&url=$encodedUrl');
           },
         ),
       );
     },
+
     generateDownloadLinkForAllFiles:
         (BuildContext context, String folderKey, LinkExpiry expiry) {
-          dispatch(
-            GenerateTempLinksForFolderAction(
-              folderKey: folderKey,
-              expiry: expiry,
-              context: context,
-              callbackFun: (urls) {
-                if (context.mounted) {
-                  // Optional: join URLs into a single string to copy
-                  final shareableLinks = urls
-                      .map(
-                        (e) =>
-                            'http://localhost:52341/download?key=${Uri.encodeComponent(e['key']!)}&url=${Uri.encodeComponent(e['url']!)}',
-                      )
-                      .join('\n');
+      dispatch(
+        GenerateTempLinksForFolderAction(
+          folderKey: folderKey,
+          expiry: expiry,
+          context: context,
+          callbackFun: (urls) {
+            if (!context.mounted) return;
 
-                  Clipboard.setData(ClipboardData(text: shareableLinks));
+            final filesEncoded = urls
+                .map((e) => {
+              'key': Uri.encodeComponent(e['key']!),
+              'url': Uri.encodeComponent(e['url']!),
+            })
+                .toList();
 
-                  // Optional: navigate to a folder download page
-                  Navigator.pushNamed(
-                    context,
-                    '/download-folder?folder=${Uri.encodeComponent(folderKey)}',
-                  );
-                }
-              },
-            ),
-          );
-        },
+            final filesJson = jsonEncode(filesEncoded);
+            final encodedFilesJson = Uri.encodeComponent(filesJson);
+
+            final shareableLink =
+                'http://localhost:52341/download-folder?folder=${Uri.encodeComponent(folderKey)}&files=$encodedFilesJson';
+
+            Clipboard.setData(ClipboardData(text: shareableLink));
+
+            context.go(
+                '/download-folder?folder=${Uri.encodeComponent(folderKey)}&files=$encodedFilesJson');
+          },
+        ),
+      );
+    },
+
   );
 }
 
