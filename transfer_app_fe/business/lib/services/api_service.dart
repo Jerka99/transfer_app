@@ -76,4 +76,23 @@ class ApiService {
     final url = response.data['url'] as String;
     return url;
   }
+
+  Future<List<Map<String, String>>> getDownloadUrlsForFolder(
+      String folderKey, LinkExpiry expiry) async {
+    final response = await DioService().dio.get(
+      '/.netlify/functions/r2',
+      queryParameters: {
+        'action': 'download-folder',
+        'key': folderKey,
+        'expiresIn': expiry.seconds,
+      },
+    );
+
+    final data = response.data['urls'] as List;
+    // Each item: { key: String, url: String }
+    return data.map((e) => {
+      'key': e['key'] as String,
+      'url': e['url'] as String,
+    }).toList();
+  }
 }

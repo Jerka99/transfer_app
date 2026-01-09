@@ -47,6 +47,35 @@ class Factory extends BaseFactory<HomePageConnector, ViewModel> {
         ),
       );
     },
+    generateDownloadLinkForAllFiles:
+        (BuildContext context, String folderKey, LinkExpiry expiry) {
+          dispatch(
+            GenerateTempLinksForFolderAction(
+              folderKey: folderKey,
+              expiry: expiry,
+              context: context,
+              callbackFun: (urls) {
+                if (context.mounted) {
+                  // Optional: join URLs into a single string to copy
+                  final shareableLinks = urls
+                      .map(
+                        (e) =>
+                            'http://localhost:52341/download?key=${Uri.encodeComponent(e['key']!)}&url=${Uri.encodeComponent(e['url']!)}',
+                      )
+                      .join('\n');
+
+                  Clipboard.setData(ClipboardData(text: shareableLinks));
+
+                  // Optional: navigate to a folder download page
+                  Navigator.pushNamed(
+                    context,
+                    '/download-folder?folder=${Uri.encodeComponent(folderKey)}',
+                  );
+                }
+              },
+            ),
+          );
+        },
   );
 }
 
@@ -64,6 +93,7 @@ class HomePageConnector extends StatelessWidget {
           uploadFile: vm.uploadFile,
           deleteFile: vm.deleteFile,
           generateDownloadLink: vm.generateDownloadLink,
+          generateDownloadLinkForAllFiles: vm.generateDownloadLinkForAllFiles,
         );
       },
     );
@@ -76,6 +106,8 @@ class ViewModel extends Vm {
   final void Function(String, Uint8List) uploadFile;
   final void Function(String) deleteFile;
   final Function(BuildContext, String, LinkExpiry) generateDownloadLink;
+  final Function(BuildContext, String, LinkExpiry)
+  generateDownloadLinkForAllFiles;
 
   ViewModel({
     required this.cloudFiles,
@@ -83,5 +115,6 @@ class ViewModel extends Vm {
     required this.uploadFile,
     required this.deleteFile,
     required this.generateDownloadLink,
+    required this.generateDownloadLinkForAllFiles,
   }) : super(equals: [cloudFiles]);
 }

@@ -98,16 +98,58 @@ exports.handler = async function (event) {
       return ok({ deleted: true });
     }
 
-    //  List
+    // List objects but treat folders as one element
     if (action === "list") {
-      const result = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET }));
-      const files = (result.Contents || []).map(obj => ({
+  const result = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET }));
+
+  const itemsMap = {}; // key = top-level folder or file
+  const filesAtRoot = [];
+
+  (result.Contents || []).forEach(obj => {
+    if (!obj.Key) return;
+    const parts = obj.Key.split('/');
+
+    if (parts.length > 1) {
+      const folderName = parts[0];
+      if (!itemsMap[folderName]) {
+        itemsMap[folderName] = { key: folderName, isFolder: true, children: [] };
+      }
+      itemsMap[folderName].children.push({
         key: obj.Key,
         size: obj.Size,
-        lastModified: obj.LastModified
-      }));
-      return ok(files);
+        lastModified: obj.LastModified,
+        isFolder: false
+      });
+    } else {
+      filesAtRoot.push({
+        key: obj.Key,
+        size: obj.Size,
+        lastModified: obj.LastModified,
+        isFolder: false
+      });
     }
+  });
+
+  const list = [...Object.values(itemsMap), ...filesAtRoot];
+  return ok(list);
+    }
+
+
+    // Generate signed URLs for all files in a folder
+    if (action === "download-folder") {
+      if (!key) return bad("Missing folder key");
+
+      // List all objects under the folder prefix
+      const result = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: key.endsWith('/') ? key : key + '/' }));
+      const urls = await Promise.all((result.Contents || []).map(async (obj) => {
+        const command = new GetObjectCommand({ Bucket: BUCKET, Key: obj.Key });
+        const url = await getSignedUrl(s3, command, { expiresIn: expirySeconds });
+        return { key: obj.Key, url };
+      }));
+
+      return ok({ folder: key, urls });
+    }
+
 
     //  Download (publicly accessible via signed URL)
     if (action === "download") {

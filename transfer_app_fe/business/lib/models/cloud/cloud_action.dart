@@ -76,3 +76,24 @@ class GenerateTempLinkAction extends ReduxAction<AppState> {
     return state;
   }
 }
+
+class GenerateTempLinksForFolderAction extends ReduxAction<AppState> {
+  final String folderKey;
+  final LinkExpiry expiry;
+  final BuildContext context;
+  final Function(List<Map<String, String>>) callbackFun;
+
+  GenerateTempLinksForFolderAction({
+    required this.folderKey,
+    required this.expiry,
+    required this.context,
+    required this.callbackFun,
+  });
+
+  @override
+  Future<AppState?> reduce() async {
+    final urls = await ApiService().getDownloadUrlsForFolder(folderKey, expiry);
+    callbackFun(urls);
+    return state;
+  }
+}

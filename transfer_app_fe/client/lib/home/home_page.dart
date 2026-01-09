@@ -13,6 +13,8 @@ class HomePage extends StatefulWidget {
   final Function(String, Uint8List) uploadFile;
   final void Function(String) deleteFile;
   final Function(BuildContext, String, LinkExpiry) generateDownloadLink;
+  final Function(BuildContext, String, LinkExpiry)
+  generateDownloadLinkForAllFiles;
 
   const HomePage({
     super.key,
@@ -21,6 +23,7 @@ class HomePage extends StatefulWidget {
     required this.uploadFile,
     required this.deleteFile,
     required this.generateDownloadLink,
+    required this.generateDownloadLinkForAllFiles,
   });
 
   @override
@@ -128,6 +131,8 @@ class _HomePageState extends State<HomePage> {
                       cloudFiles: widget.cloudFiles,
                       deleteFile: widget.deleteFile,
                       generateDownloadLink: widget.generateDownloadLink,
+                      generateDownloadLinkForAllFiles:
+                          widget.generateDownloadLinkForAllFiles,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -141,7 +146,7 @@ class _HomePageState extends State<HomePage> {
                         localFileData[name] = bytes;
                         setState(() => localFiles.add(name));
                       },
-                      selectFiles: selectFiles, // <- pass the function here
+                      // selectFiles: selectFiles, // <- pass the function here
                     ),
                   ),
 
@@ -182,7 +187,7 @@ class _HomePageState extends State<HomePage> {
                             localFileData[name] = bytes;
                             setState(() => localFiles.add(name));
                           },
-                          selectFiles: selectFiles, // <- pass the function here
+                          // selectFiles: selectFiles, // <- pass the function here
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -214,6 +219,8 @@ class _HomePageState extends State<HomePage> {
                     cloudFiles: widget.cloudFiles,
                     deleteFile: widget.deleteFile,
                     generateDownloadLink: widget.generateDownloadLink,
+                    generateDownloadLinkForAllFiles:
+                        widget.generateDownloadLinkForAllFiles,
                   ),
                 ),
               ],
