@@ -4,8 +4,14 @@ import 'package:flutter/material.dart';
 class Panel extends StatelessWidget {
   final String title;
   final Widget child;
+  final Widget? titleWidget;
 
-  const Panel({super.key, required this.title, required this.child});
+  const Panel({
+    super.key,
+    required this.title,
+    required this.child,
+    this.titleWidget,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +24,8 @@ class Panel extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            height: 56, // ~1.5cm
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[200],
@@ -26,9 +33,18 @@ class Panel extends StatelessWidget {
                 top: Radius.circular(12),
               ),
             ),
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const Spacer(),
+                if (titleWidget != null) titleWidget!,
+              ],
             ),
           ),
           Expanded(child: child),

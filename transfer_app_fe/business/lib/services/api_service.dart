@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:business/models/cloud/s3_file.dart';
+import 'package:business/models/cloud/cloud_list_response_state.dart';
 import 'package:business/models/signed_url_response.dart';
 import 'package:dio/dio.dart';
 import '../models/cloud/link_expiry.dart';
@@ -8,14 +8,17 @@ import 'dio_service.dart';
 class ApiService {
   final Dio _dio = DioService().dio;
 
-  Future<List<S3File>> getFiles() async {
+  Future<CloudListResponseState> getFiles() async {
     try {
-      Response response = await _dio.get(
+      final response = await _dio.get(
         '/.netlify/functions/r2',
         queryParameters: {'action': 'list'},
-        options: Options(headers: {'Authorization': 'Bearer ${"12345"}'}),
+        options: Options(headers: {'Authorization': 'Bearer 12345'}),
       );
-      return S3File.listFromJson(response.data);
+
+      return CloudListResponseState.fromJson(
+        response.data as Map<String, dynamic>,
+      );
     } on DioException catch (e) {
       throw Exception('Failed to fetch files: ${e.message}');
     }
@@ -33,6 +36,7 @@ class ApiService {
         'key': filename,
         'contentType': 'application/octet-stream',
         'expiresIn': expiry.seconds,
+        'size': bytes.length,
       },
       options: Options(headers: {'Authorization': 'Bearer ${"12345"}'}),
     );
@@ -78,7 +82,9 @@ class ApiService {
   }
 
   Future<List<Map<String, String>>> getDownloadUrlsForFolder(
-      String folderKey, LinkExpiry expiry) async {
+    String folderKey,
+    LinkExpiry expiry,
+  ) async {
     final response = await DioService().dio.get(
       '/.netlify/functions/r2',
       queryParameters: {
@@ -90,9 +96,8 @@ class ApiService {
 
     final data = response.data['urls'] as List;
     // Each item: { key: String, url: String }
-    return data.map((e) => {
-      'key': e['key'] as String,
-      'url': e['url'] as String,
-    }).toList();
+    return data
+        .map((e) => {'key': e['key'] as String, 'url': e['url'] as String})
+        .toList();
   }
 }

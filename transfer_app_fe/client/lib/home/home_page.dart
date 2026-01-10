@@ -1,14 +1,14 @@
 import 'dart:typed_data';
+import 'package:business/models/cloud/cloud_list_response_state.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:business/models/cloud/link_expiry.dart';
-import 'package:business/models/cloud/s3_file.dart';
 import 'upload_area.dart';
 import 'local_upload_panel.dart';
 import 'cloud_panel.dart';
 
 class HomePage extends StatefulWidget {
-  final List<S3File> cloudFiles;
+  final CloudListResponseState cloudListResponseState;
   final VoidCallback fetchCloudFiles;
   final Function(String, Uint8List) uploadFile;
   final void Function(String) deleteFile;
@@ -18,7 +18,7 @@ class HomePage extends StatefulWidget {
 
   const HomePage({
     super.key,
-    required this.cloudFiles,
+    required this.cloudListResponseState,
     required this.fetchCloudFiles,
     required this.uploadFile,
     required this.deleteFile,
@@ -128,7 +128,7 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     flex: 3,
                     child: CloudPanel(
-                      cloudFiles: widget.cloudFiles,
+                      cloudListResponseState: widget.cloudListResponseState,
                       deleteFile: widget.deleteFile,
                       generateDownloadLink: widget.generateDownloadLink,
                       generateDownloadLinkForAllFiles:
@@ -216,7 +216,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   flex: 2,
                   child: CloudPanel(
-                    cloudFiles: widget.cloudFiles,
+                    cloudListResponseState: widget.cloudListResponseState,
                     deleteFile: widget.deleteFile,
                     generateDownloadLink: widget.generateDownloadLink,
                     generateDownloadLinkForAllFiles:

@@ -1,19 +1,20 @@
 import 'dart:typed_data';
 
 import 'package:async_redux/async_redux.dart';
-import 'package:business/models/cloud/s3_file.dart';
 import 'package:business/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../store/app_state.dart';
+import 'cloud_list_response_state.dart';
 import 'link_expiry.dart';
 
 class FetchCloudFilesAction extends ReduxAction<AppState> {
   @override
   Future<AppState?> reduce() async {
-    final List<S3File> s3filesList = await ApiService().getFiles();
+    final CloudListResponseState cloudListResponseState = await ApiService()
+        .getFiles();
 
-    return state.copyWith(cloudFiles: s3filesList);
+    return state.copyWith(cloudListResponseState: cloudListResponseState);
   }
 }
 

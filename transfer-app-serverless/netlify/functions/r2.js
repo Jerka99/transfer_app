@@ -19,6 +19,8 @@ const CORS_HEADERS = {
 const BUCKET = process.env.R2_BUCKET_NAME;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const MAX_STORAGE_BYTES =
+  Number(process.env.MAX_STORAGE_GB || 50) * 1024 * 1024 * 1024;
 
 function safeEqual(a, b) {
   return (
@@ -63,7 +65,7 @@ exports.handler = async function (event) {
     };
   }
   try {
-    const { action, key, contentType, password, expiresIn } = event.queryStringParameters || {};
+    const { action, key, contentType, password, expiresIn, size } = event.queryStringParameters || {};
 
     //  Login
     if (action === "login") {
@@ -87,6 +89,18 @@ exports.handler = async function (event) {
 
     //  Upload
     if (action === "upload") {
+      if (!size || isNaN(size)) {
+        return bad("Missing or invalid file size");
+      }
+
+      const fileSize = Number(size);
+
+      const currentUsage = await getTotalBucketSize();
+
+      if (currentUsage + fileSize > MAX_STORAGE_BYTES) {
+        return bad("Storage limit exceeded (50GB)");
+      }
+
       const command = new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType });
       const url = await getSignedUrl(s3, command, { expiresIn: DEFAULT_EXPIRY });
       return ok({ url, expiresIn: expirySeconds });
@@ -100,38 +114,48 @@ exports.handler = async function (event) {
 
     // List objects but treat folders as one element
     if (action === "list") {
-  const result = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET }));
+      const result = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET }));
 
-  const itemsMap = {}; // key = top-level folder or file
-  const filesAtRoot = [];
+      const itemsMap = {}; // key = top-level folder or file
+      const filesAtRoot = [];
 
-  (result.Contents || []).forEach(obj => {
-    if (!obj.Key) return;
-    const parts = obj.Key.split('/');
+      (result.Contents || []).forEach(obj => {
+        if (!obj.Key) return;
+        const parts = obj.Key.split('/');
 
-    if (parts.length > 1) {
-      const folderName = parts[0];
-      if (!itemsMap[folderName]) {
-        itemsMap[folderName] = { key: folderName, isFolder: true, children: [] };
-      }
-      itemsMap[folderName].children.push({
-        key: obj.Key,
-        size: obj.Size,
-        lastModified: obj.LastModified,
-        isFolder: false
+        if (parts.length > 1) {
+          const folderName = parts[0];
+          if (!itemsMap[folderName]) {
+            itemsMap[folderName] = { key: folderName, isFolder: true, children: [] };
+          }
+          itemsMap[folderName].children.push({
+            key: obj.Key,
+            size: obj.Size,
+            lastModified: obj.LastModified,
+            isFolder: false
+          });
+        } else {
+          filesAtRoot.push({
+            key: obj.Key,
+            size: obj.Size,
+            lastModified: obj.LastModified,
+            isFolder: false
+          });
+        }
       });
-    } else {
-      filesAtRoot.push({
-        key: obj.Key,
-        size: obj.Size,
-        lastModified: obj.LastModified,
-        isFolder: false
-      });
-    }
-  });
 
-  const list = [...Object.values(itemsMap), ...filesAtRoot];
-  return ok(list);
+      let usedBytes = 0;
+
+      (result.Contents || []).forEach(obj => {
+        usedBytes += obj.Size || 0;
+      });
+
+      const list = [...Object.values(itemsMap), ...filesAtRoot];
+      return ok({
+        maxBytes: MAX_STORAGE_BYTES,
+        usedBytes,
+        items: list,
+      });
     }
 
 
@@ -204,4 +228,28 @@ function error(msg) {
     },
     body: JSON.stringify({ error: msg })
   };
+}
+
+async function getTotalBucketSize() {
+  let continuationToken;
+  let total = 0;
+
+  do {
+    const result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        ContinuationToken: continuationToken,
+      })
+    );
+
+    for (const obj of result.Contents || []) {
+      total += obj.Size || 0;
+    }
+
+    continuationToken = result.IsTruncated
+      ? result.NextContinuationToken
+      : undefined;
+  } while (continuationToken);
+
+  return total;
 }

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:async_redux/async_redux.dart';
 import 'package:business/models/cloud/cloud_action.dart';
+import 'package:business/models/cloud/cloud_list_response_state.dart';
 import 'package:business/models/cloud/link_expiry.dart';
-import 'package:business/models/cloud/s3_file.dart';
 import 'package:business/store/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,7 +16,7 @@ import 'home_page.dart';
 class Factory extends BaseFactory<HomePageConnector, ViewModel> {
   @override
   ViewModel fromStore() => ViewModel(
-    cloudFiles: state.cloudFiles,
+    cloudListResponseState: state.cloudListResponseState,
     fetchCloudFiles: () => dispatch(FetchCloudFilesAction()),
     uploadFile: (String filename, Uint8List bytes) => dispatch(
       UploadFileAction(
@@ -104,7 +104,7 @@ class HomePageConnector extends StatelessWidget {
       vm: () => Factory(),
       builder: (BuildContext context, ViewModel vm) {
         return HomePage(
-          cloudFiles: vm.cloudFiles,
+          cloudListResponseState: vm.cloudListResponseState,
           fetchCloudFiles: vm.fetchCloudFiles,
           uploadFile: vm.uploadFile,
           deleteFile: vm.deleteFile,
@@ -117,7 +117,7 @@ class HomePageConnector extends StatelessWidget {
 }
 
 class ViewModel extends Vm {
-  final List<S3File> cloudFiles;
+  final CloudListResponseState cloudListResponseState;
   final VoidCallback fetchCloudFiles;
   final void Function(String, Uint8List) uploadFile;
   final void Function(String) deleteFile;
@@ -126,11 +126,11 @@ class ViewModel extends Vm {
   generateDownloadLinkForAllFiles;
 
   ViewModel({
-    required this.cloudFiles,
+    required this.cloudListResponseState,
     required this.fetchCloudFiles,
     required this.uploadFile,
     required this.deleteFile,
     required this.generateDownloadLink,
     required this.generateDownloadLinkForAllFiles,
-  }) : super(equals: [cloudFiles]);
+  }) : super(equals: [cloudListResponseState]);
 }
