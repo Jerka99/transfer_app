@@ -27,32 +27,20 @@ class _UploadAreaState extends State<UploadArea> {
   void initState() {
     super.initState();
 
-    // Register Dart callback callable from JS for folder drops
     js_util.setProperty(
       js_util.globalThis,
       'flutterFolderDropCallback',
       js_util.allowInterop((String path, dynamic bytes) {
         widget.onDropFile(path, Uint8List.fromList(List<int>.from(bytes)));
-        widget.onHoverChanged(false); // remove hover after drop
+        widget.onHoverChanged(false);
       }),
     );
 
-    // Call JS function defined in drop_folder.js
-    js_util.callMethod(js_util.globalThis, 'handleFolderDrop', ['flutterFolderDropCallback']);
-
-    // Optional: detect folder hover
-    js_util.callMethod(js_util.globalThis, 'addEventListener', [
-      'dragenter',
-      js_util.allowInterop((event) {
-        widget.onHoverChanged(true);
-      })
-    ]);
-    js_util.callMethod(js_util.globalThis, 'addEventListener', [
-      'dragleave',
-      js_util.allowInterop((event) {
-        widget.onHoverChanged(false);
-      })
-    ]);
+    // Only register once
+    if (!(js_util.getProperty(js_util.globalThis, '__folderDropInitialized') ?? false)) {
+      js_util.callMethod(js_util.globalThis, 'handleFolderDrop', ['flutterFolderDropCallback']);
+      js_util.setProperty(js_util.globalThis, '__folderDropInitialized', true);
+    }
   }
 
   /// Opens system file picker (Finder/Explorer) and allows files + folders
@@ -124,30 +112,26 @@ class _UploadAreaState extends State<UploadArea> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Dropzone handles drag & drop of single files
         DropzoneView(
           onCreated: (c) => dropController = c,
           onHover: () => widget.onHoverChanged(true),
           onLeave: () => widget.onHoverChanged(false),
           onDropFile: (ev) async {
-            // Prevent duplicate when folder drop occurs
-            final isFolderDrop = js_util.getProperty(js_util.globalThis, '__isFolderDrop') ?? false;
-            if (isFolderDrop) return;
-
             if (dropController == null) return;
+
             final name = await dropController!.getFilename(ev);
+
+            if (name.contains('/')) return;
+
             final bytes = await dropController!.getFileData(ev);
             widget.onDropFile(name, bytes);
             widget.onHoverChanged(false);
           },
         ),
-
-        // Clickable overlay
         GestureDetector(
-          onTap: selectFilesOrFolder, // <- open Finder/Explorer
+          onTap: selectFilesOrFolder,
           child: Container(
             width: double.infinity,
-            height: 200,
             decoration: BoxDecoration(
               color: widget.isHovering ? Colors.blue[100] : Colors.blue[50],
               border: Border.all(color: Colors.blue, width: 2),

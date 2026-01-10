@@ -1,4 +1,7 @@
 window.handleFolderDrop = (callbackId) => {
+  if (window.__folderDropRegistered) return;
+    window.__folderDropRegistered = true;
+
   window.__isFolderDrop = false;
 
   const getFile = (entry) => {

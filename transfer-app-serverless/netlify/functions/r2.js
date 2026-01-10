@@ -48,7 +48,7 @@ function resolveExpiry(raw) {
   const seconds = Number(raw);
   // if (!Number.isInteger(seconds)) return DEFAULT_EXPIRY;
   // if (!ALLOWED_EXPIRIES.includes(seconds)) return DEFAULT_EXPIRY;
-  return seconds;
+  return 30;
 }
 
 exports.handler = async function (event) {

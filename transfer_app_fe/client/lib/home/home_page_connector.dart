@@ -52,39 +52,46 @@ class Factory extends BaseFactory<HomePageConnector, ViewModel> {
         ),
       );
     },
-
     generateDownloadLinkForAllFiles:
         (BuildContext context, String folderKey, LinkExpiry expiry) {
-      dispatch(
-        GenerateTempLinksForFolderAction(
-          folderKey: folderKey,
-          expiry: expiry,
-          context: context,
-          callbackFun: (urls) {
-            if (!context.mounted) return;
+          dispatch(
+            GenerateTempLinksForFolderAction(
+              folderKey: folderKey,
+              expiry: expiry,
+              context: context,
+              callbackFun: (urls) {
+                if (!context.mounted) return;
 
-            final filesEncoded = urls
-                .map((e) => {
-              'key': Uri.encodeComponent(e['key']!),
-              'url': Uri.encodeComponent(e['url']!),
-            })
-                .toList();
+                final filesEncoded = urls
+                    .map(
+                      (e) => {
+                        'key': base64UrlEncode(utf8.encode(e['key']!)),
+                        'url': base64UrlEncode(utf8.encode(e['url']!)),
+                      },
+                    )
+                    .toList();
 
-            final filesJson = jsonEncode(filesEncoded);
-            final encodedFilesJson = Uri.encodeComponent(filesJson);
+                final filesJson = jsonEncode(filesEncoded);
 
-            final shareableLink =
-                'http://localhost:52341/download-folder?folder=${Uri.encodeComponent(folderKey)}&files=$encodedFilesJson';
+                final encodedFilesJson = base64UrlEncode(
+                  utf8.encode(filesJson),
+                );
+                final encodedFolderKey = base64UrlEncode(
+                  utf8.encode(folderKey),
+                );
 
-            Clipboard.setData(ClipboardData(text: shareableLink));
+                final shareableLink =
+                    'http://localhost:52341/download-folder?folder=$encodedFolderKey&files=$encodedFilesJson';
 
-            context.go(
-                '/download-folder?folder=${Uri.encodeComponent(folderKey)}&files=$encodedFilesJson');
-          },
-        ),
-      );
-    },
+                Clipboard.setData(ClipboardData(text: shareableLink));
 
+                context.go(
+                  '/download-folder?folder=$encodedFolderKey&files=$encodedFilesJson',
+                );
+              },
+            ),
+          );
+        },
   );
 }
 

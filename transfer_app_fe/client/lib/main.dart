@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 import 'download/download_page.dart';
+import 'download/link_expired_view.dart';
 
 void main() {
   usePathUrlStrategy();
@@ -48,24 +49,38 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/download-folder',
           builder: (context, state) {
-            final folderKeyEncoded = state.uri.queryParameters['folder']!;
-            final filesJsonEncoded = state.uri.queryParameters['files']!;
+            try {
+              final folderEncoded = state.uri.queryParameters['folder'];
+              final filesEncoded = state.uri.queryParameters['files'];
 
-            // Decode Base64 URL safe
-            final folderKey = utf8.decode(base64Url.decode(folderKeyEncoded));
-            final filesJson = utf8.decode(base64Url.decode(filesJsonEncoded));
+              if (folderEncoded == null || filesEncoded == null)
+                return const LinkExpiredView();
 
-            final files = (jsonDecode(filesJson) as List)
-                .map(
-                  (e) => {
-                    'key': utf8.decode(base64Url.decode(e['key'])),
-                    'url': utf8.decode(base64Url.decode(e['url'])),
-                  },
-                )
-                .toList();
+              final folderKey = utf8.decode(base64Url.decode(folderEncoded));
+              final filesJsonString = utf8.decode(
+                base64Url.decode(filesEncoded),
+              );
 
-            return DownloadPage(folderKey: folderKey, files: files);
+              final List rawFiles = jsonDecode(filesJsonString);
+
+              final files = rawFiles.map<Map<String, String>>((e) {
+                return {
+                  'key': utf8.decode(base64Url.decode(e['key'] as String)),
+                  'url': utf8.decode(base64Url.decode(e['url'] as String)),
+                };
+              }).toList();
+
+              return DownloadPage(folderKey: folderKey, files: files);
+            } catch (e, st) {
+              debugPrint(' Failed to parse download-folder link: $e');
+              debugPrintStack(stackTrace: st);
+              return const LinkExpiredView();
+            }
           },
+        ),
+        GoRoute(
+          path: '/expired',
+          builder: (context, state) => const LinkExpiredView(),
         ),
       ],
     );
